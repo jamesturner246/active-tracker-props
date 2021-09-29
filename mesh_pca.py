@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 import json
-from stl import Mesh
+import stl
 from sklearn.decomposition import PCA
 
 
@@ -17,37 +17,43 @@ def main():
     # load initial
     with open(f'./{prop}/{prop}_markers.json', 'r') as f:
         markers1 = json.load(f)
-        markers1 = np.array([v for v in markers1.values()])
-    mesh1 = Mesh.from_file(f'./{prop}/{prop}_decimated.stl').vectors
+    mesh = stl.Mesh.from_file(f'./{prop}/{prop}_decimated.stl')
 
     # PCA of mesh and markers
     pca = PCA()
-    mesh2 = mesh1.reshape(-1, 3)
-    mesh2 = pca.fit_transform(mesh2)
-    mesh2_min = mesh2.min(0)
-    mesh2_max = mesh2.max(0)
-    mesh2_mid = mesh2_min / 2 + mesh2_max / 2
-    mesh2 -= mesh2_mid
-    mesh2 = mesh2.reshape(-1, 3, 3)
-    markers2 = pca.transform(markers1)
-    markers2 -= mesh2_mid
-
-    collection1 = mplot3d.art3d.Poly3DCollection(mesh1, facecolors='red')
-    collection2 = mplot3d.art3d.Poly3DCollection(mesh2, facecolors='green')
+    np_mesh1 = mesh.vectors.copy()
+    np_mesh2 = np_mesh1.reshape(-1, 3)
+    np_mesh2 = pca.fit_transform(np_mesh2)
+    np_mesh2_min = np_mesh2.min(0)
+    np_mesh2_max = np_mesh2.max(0)
+    np_mesh2_mid = np_mesh2_min / 2 + np_mesh2_max / 2
+    np_mesh2 -= np_mesh2_mid
+    np_mesh2 = np_mesh2.reshape(-1, 3, 3)
+    markers2 = markers1.copy()
+    for marker_name in markers1.keys():
+        new_marker = pca.transform([markers1[marker_name]])
+        new_marker -= np_mesh2_mid
+        markers2[marker_name] = new_marker[0].tolist()
 
     # save final
+    mesh.vectors[:] = np_mesh2
+    mesh.save(f'./{prop}/{prop}_final.stl')
     with open(f'./{prop}/{prop}_markers_final.json', 'w') as f:
         json.dump(markers2, f)
-    mesh2.save(f'./{prop}/{prop}_final.stl')
 
     # plot
     fig = plt.figure()
+    np_markers1 = np.array([m for m in markers1.values()])
+    np_markers2 = np.array([m for m in markers2.values()])
+
+    collection1 = mplot3d.art3d.Poly3DCollection(np_mesh1, facecolors='red')
+    collection2 = mplot3d.art3d.Poly3DCollection(np_mesh2, facecolors='green')
 
     ax = fig.add_subplot(projection='3d')
     ax.add_collection3d(collection1)
-    ax.scatter(markers1[:, 0], markers1[:, 1], markers1[:, 2], color='blue')
+    ax.scatter(np_markers1[:, 0], np_markers1[:, 1], np_markers1[:, 2], color='blue')
     ax.add_collection3d(collection2)
-    ax.scatter(markers2[:, 0], markers2[:, 1], markers2[:, 2], color='gold')
+    ax.scatter(np_markers2[:, 0], np_markers2[:, 1], np_markers2[:, 2], color='gold')
     ax.set_xlim([-150, 150])
     ax.set_ylim([-150, 150])
     ax.set_zlim([-150, 150])
@@ -57,7 +63,7 @@ def main():
 
     # ax1 = fig.add_subplot(121, projection='3d')
     # ax1.add_collection3d(collection1)
-    # ax1.scatter(markers1[:, 0], markers1[:, 1], markers1[:, 2], color='blue')
+    # ax1.scatter(np_markers1[:, 0], np_markers1[:, 1], np_markers1[:, 2], color='blue')
     # ax1.set_xlim([-150, 150])
     # ax1.set_ylim([-150, 150])
     # ax1.set_zlim([-150, 150])
@@ -67,14 +73,13 @@ def main():
 
     # ax2 = fig.add_subplot(122, projection='3d')
     # ax2.add_collection3d(collection2)
-    # ax2.scatter(markers2[:, 0], markers2[:, 1], markers2[:, 2], color='gold')
+    # ax2.scatter(np_markers2[:, 0], np_markers2[:, 1], np_markers2[:, 2], color='gold')
     # ax2.set_xlim([-150, 150])
     # ax2.set_ylim([-150, 150])
     # ax2.set_zlim([-150, 150])
     # ax2.set_xlabel('x')
     # ax2.set_ylabel('y')
     # ax2.set_zlabel('z')
-
 
     plt.show()
 
